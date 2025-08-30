@@ -165,13 +165,6 @@ class ImageGeneratorApp:
         # Показываем ошибку
         messagebox.showerror("Ошибка", f"Произошла ошибка при генерации:\n{error_message}")
 
-    def copy_url(self):
-        url = self.url_label.cget("text")
-        if url and url != "Здесь появится ссылка..." and not url.startswith("Ошибка"):
-            self.root.clipboard_clear()
-            self.root.clipboard_append(url)
-            messagebox.showinfo("Скопировано", "Ссылка скопирована в буфер обмена")
-
 
 def main():
     root = tk.Tk()
