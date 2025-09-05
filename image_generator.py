@@ -15,11 +15,24 @@ class ImageGeneratorApp:
     def __init__(self, root):
         self.root = root
         self.root.title('Генератор изображений')
-        self.root.geometry('700x400')
-        self.root.minsize(600, 300)  # Минимальный размер окна
+        self.root.geometry('700x450')
+        self.root.minsize(600, 350)  # Минимальный размер окна
+        self.tooltip = None
 
         # Центрирование окна
         self.center_window()
+
+        # Доступные модели
+        self.available_models = [
+            'flux',
+            'stable_diffusion_3',
+            'sdxl_lightning',
+            'dall-e',
+            'playground_v2.5'
+        ]
+
+        # Текущая выбранная модель
+        self.selected_model = tk.StringVar(value=self.available_models[0])
 
         self.setup_ui()
 
@@ -38,7 +51,42 @@ class ImageGeneratorApp:
 
         # Заголовок
         title_label = ttk.Label(main_frame, text="Генератор изображений", font=("Arial", 16, "bold"))
-        title_label.pack(pady=(0, 20))
+        title_label.pack(pady=(0, 15))
+
+        # Фрейм для выбора модели
+        model_frame = ttk.Frame(main_frame)
+        model_frame.pack(fill=tk.X, pady=(0, 15))
+
+        ttk.Label(model_frame, text="Модель генерации:").pack(anchor=tk.W)
+
+        # Combobox для выбора модели
+        model_combo = ttk.Combobox(
+            model_frame,
+            textvariable=self.selected_model,
+            values=self.available_models,
+            state="readonly",
+            font=("Arial", 10)
+        )
+        model_combo.pack(fill=tk.X, pady=(5, 0))
+
+        # Подсказка при наведении
+        self.tooltip = tk.Toplevel(self.root)
+        self.tooltip.withdraw()
+        self.tooltip_label = ttk.Label(self.tooltip, text="", background="lightyellow", relief="solid", borderwidth=1)
+        self.tooltip_label.pack()
+
+        def show_tooltip(event):
+            model = self.selected_model.get()
+            tooltip_text = self.get_model_description(model)
+            self.tooltip_label.config(text=tooltip_text)
+            self.tooltip.geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
+            self.tooltip.deiconify()
+
+        def hide_tooltip(event):
+            self.tooltip.withdraw()
+
+        model_combo.bind("<Enter>", show_tooltip)
+        model_combo.bind("<Leave>", hide_tooltip)
 
         #  Фрейм для промпта
         prompt_frame = ttk.Frame(main_frame)
@@ -56,18 +104,21 @@ class ImageGeneratorApp:
             text_frame,
             wrap=tk.WORD,  # Перенос слов
             font=("Arial", 11),
-            height=8,  # Высота в строках
+            height=6,  # Высота в строках
             padx=5,
             pady=5
         )
         self.prompt_text.pack(fill=tk.BOTH, expand=True)
         self.prompt_text.insert('1.0', "woman in dress")
 
+        # Бинд Ctrl+Enter для быстрой генерации (ДОБАВЬТЕ ЭТУ СТРОЧКУ)
+        self.prompt_text.bind('<Control-Return>', lambda e: self.start_generation())
+
         # Кнопка генерации
         self.generate_btn = ttk.Button(main_frame, text="Сгенерировать изображение",
                                        command=self.start_generation,
                                        style="Accent.TButton")
-        self.generate_btn.pack(pady=20)
+        self.generate_btn.pack(pady=15)
 
         # Индикатор загрузки
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
@@ -78,8 +129,21 @@ class ImageGeneratorApp:
         status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
+    def get_model_description(self, model):
+        """Возвращает описание модели для подсказки"""
+        descriptions = {
+            'flux': 'FLUX - современная модель с открытым исходным кодом, хорошее качество изображений',
+            'stable_diffusion_3': 'Stable Diffusion 3 - продвинутая модель от Stability AI, поддерживает текст в изображениях',
+            'sdxl_lightning': 'SDXL Lightning - очень быстрая версия SDXL, генерирует изображения за несколько секунд',
+            'dall-e': 'DALL-E - модель от OpenAI, высокое качество но может требовать ключ API',
+            'playground_v2.5': 'Playground v2.5 - стилизованная модель в духе Midjourney'
+        }
+        return descriptions.get(model, 'Описание модели недоступно')
+
     def start_generation(self):
         prompt = self.prompt_text.get('1.0', tk.END).strip()
+        model = self.selected_model.get()
+
         if not prompt:
             messagebox.showwarning("Внимание", "Введите промпт для генерации")
             return
@@ -89,54 +153,60 @@ class ImageGeneratorApp:
         self.prompt_text.config(state="disabled")
         self.progress.pack(pady=10)
         self.progress.start()
-        self.root.title('Генератор изображений - идёт генерация...')
-        self.status_var.set("Генерация изображения...")
+        self.root.title(f'Генератор изображений - {model} - идёт генерация...')
+        self.status_var.set(f"Генерация изображения с помощью {model}...")
 
         # Запускаем асинхронную задачу в отдельном потоке
-        thread = Thread(target=self.run_async_task, args=(prompt,))
+        thread = Thread(target=self.run_async_task, args=(prompt, model))
         thread.daemon = True
         thread.start()
 
-    def run_async_task(self, prompt):
+    def run_async_task(self, prompt, model):
         # Создаем новый event loop для потока
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
         try:
-            result = loop.run_until_complete(self.generate_image(prompt))
-            self.root.after(0, self.on_generation_success, result, prompt)
+            result = loop.run_until_complete(self.generate_image(prompt, model))
+            self.root.after(0, self.on_generation_success, result, prompt, model)
         except Exception as e:
-            self.root.after(0, self.on_generation_error, str(e))
+            self.root.after(0, self.on_generation_error, str(e), model)
         finally:
             loop.close()
 
-    async def generate_image(self, prompt):
+    async def generate_image(self, prompt, model):
         client = AsyncClient()
 
-        response = await client.images.generate(
-            prompt=prompt,
-            model='stable_diffusion_3',
-            response_format='url',  # Получить URL изображения
-            size='1024x1024',
-            style='photorealistic'
-        )
+        # Базовые параметры для всех моделей
+        params = {
+            'prompt': prompt,
+            'model': model,
+            'response_format': 'url'
+        }
 
+        # Добавляем специфические параметры для разных моделей
+        if model in ['flux', 'stable_diffusion_3', 'sdxl_lightning']:
+            params['size'] = '1024x1024'
+        if model == 'flux':
+            params['style'] = 'photorealistic'
+
+        response = await client.images.generate(**params)
         image_url = response.data[0].url
         return image_url
 
-    def on_generation_success(self, image_url, prompt):
+    def on_generation_success(self, image_url, prompt, model):
         # Останавливаем прогресс и обновляем UI
         self.progress.stop()
         self.progress.pack_forget()
         self.generate_btn.config(state="normal")
         self.prompt_text.config(state="normal")
         self.root.title('Генератор изображений')
-        self.status_var.set("Генерация завершена")
+        self.status_var.set(f"Генерация завершена ({model})")
 
         # Загружаем и отображаем изображение
-        self.download_and_show_image(image_url, prompt)
+        self.download_and_show_image(image_url, prompt, model)
 
-    def download_and_show_image(self, image_url, prompt):
+    def download_and_show_image(self, image_url, prompt, model):
         try:
             self.status_var.set("Загрузка изображения...")
 
@@ -149,7 +219,7 @@ class ImageGeneratorApp:
             pil_image = Image.open(image_data)
 
             # Создаем новое окно для отображения изображения
-            self.show_image_window(pil_image, image_url, prompt)
+            self.show_image_window(pil_image, image_url, prompt, model)
 
             self.status_var.set("Изображение загружено")
 
@@ -162,10 +232,10 @@ class ImageGeneratorApp:
             self.status_var.set("Ошибка загрузки")
             self.prompt_text.config(state="normal")
 
-    def show_image_window(self, pil_image, image_url, prompt):
+    def show_image_window(self, pil_image, image_url, prompt, model):
         # Создаем новое окно
         image_window = tk.Toplevel(self.root)
-        image_window.title("Сгенерированное изображение")
+        image_window.title(f"Сгенерированное изображение - {model}")
         image_window.geometry('800x700')
         image_window.minsize(700, 600)
 
@@ -219,7 +289,8 @@ class ImageGeneratorApp:
         info_frame = ttk.Frame(notebook)
         notebook.add(info_frame, text="Информация")
 
-        info_text = f"""Промпт: {prompt}
+        info_text = f"""Модель: {model}
+Промпт: {prompt}
 
 Размер оригинала: {pil_image.size[0]}x{pil_image.size[1]}px
 Формат: {pil_image.format}
@@ -252,8 +323,9 @@ URL изображения: {image_url}
     def save_image(self,pil_image):
         # Генерируем предлагаемое имя файла на основе промпта
         prompt_text = self.prompt_text.get('1.0', tk.END).strip()[:50]
+        model = self.selected_model.get()
         safe_name = "".join(c if c.isalnum() else "_" for c in prompt_text)
-        default_name = f"generated_{safe_name}.jpg" if safe_name else "generated_image.jpg"
+        default_name = f"generated_{safe_name}_{model}.jpg"
 
         file_path = filedialog.asksaveasfilename(
             initialfile=default_name,
@@ -280,17 +352,17 @@ URL изображения: {image_url}
                 messagebox.showerror("Ошибка", f"Не удалось сохранить изображение:\n{str(e)}")
                 self.status_var.set("Ошибка сохранения")
 
-    def on_generation_error(self, error_message):
+    def on_generation_error(self, error_message, model):
         # Останавливаем прогресс и обновляем UI
         self.progress.stop()
         self.progress.pack_forget()
         self.generate_btn.config(state="normal")
         self.prompt_text.config(state="normal")
         self.root.title('Генератор изображений')
-        self.status_var.set("Ошибка генерации")
+        self.status_var.set(f"Ошибка генерации ({model})")
 
         # Показываем ошибку
-        messagebox.showerror("Ошибка", f"Произошла ошибка при генерации:\n{error_message}")
+        messagebox.showerror("Ошибка", f"Произошла ошибка при генерации с помощью {model}:\n{error_message}")
 
 
 def main():
