@@ -1,7 +1,7 @@
 import asyncio
 import os.path
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, scrolledtext
 from threading import Thread
 from urllib.parse import urlparse
 from tkinter import filedialog
@@ -15,8 +15,8 @@ class ImageGeneratorApp:
     def __init__(self, root):
         self.root = root
         self.root.title('Генератор изображений')
-        self.root.geometry('600x300')
-        self.root.minsize(500, 200)  # Минимальный размер окна
+        self.root.geometry('700x400')
+        self.root.minsize(600, 300)  # Минимальный размер окна
 
         # Центрирование окна
         self.center_window()
@@ -42,16 +42,26 @@ class ImageGeneratorApp:
 
         #  Фрейм для промпта
         prompt_frame = ttk.Frame(main_frame)
-        prompt_frame.pack(fill=tk.X, pady=(0, 15))
+        prompt_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
 
         # Промпт
         ttk.Label(prompt_frame, text="Введите промпт:").pack(anchor=tk.W)
-        self.prompt_entry = ttk.Entry(prompt_frame, font=("Arial", 11))
-        self.prompt_entry.pack(fill=tk.X, pady=(5, 0))
-        self.prompt_entry.insert(0, "woman in dress")
 
-        # Бинд Enter для быстрой генерации
-        self.prompt_entry.bind('<Return>', lambda e: self.start_generation())
+        # Создаем фрейм для текстового поля и скроллбаров
+        text_frame = ttk.Frame(prompt_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+
+        # Многострочное текстовое поле с прокруткой
+        self.prompt_text = scrolledtext.ScrolledText(
+            text_frame,
+            wrap=tk.WORD,  # Перенос слов
+            font=("Arial", 11),
+            height=8,  # Высота в строках
+            padx=5,
+            pady=5
+        )
+        self.prompt_text.pack(fill=tk.BOTH, expand=True)
+        self.prompt_text.insert('1.0', "woman in dress")
 
         # Кнопка генерации
         self.generate_btn = ttk.Button(main_frame, text="Сгенерировать изображение",
@@ -69,14 +79,14 @@ class ImageGeneratorApp:
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def start_generation(self):
-        prompt = self.prompt_entry.get().strip()
+        prompt = self.prompt_text.get('1.0', tk.END).strip()
         if not prompt:
             messagebox.showwarning("Внимание", "Введите промпт для генерации")
             return
 
         # Блокируем кнопку и показываем прогресс
         self.generate_btn.config(state="disabled")
-        self.prompt_entry.config(state="disabled")
+        self.prompt_text.config(state="disabled")
         self.progress.pack(pady=10)
         self.progress.start()
         self.root.title('Генератор изображений - идёт генерация...')
@@ -105,7 +115,7 @@ class ImageGeneratorApp:
 
         response = await client.images.generate(
             prompt=prompt,
-            model='flux',
+            model='stable_diffusion_3',
             response_format='url',  # Получить URL изображения
             size='1024x1024',
             style='photorealistic'
@@ -119,7 +129,7 @@ class ImageGeneratorApp:
         self.progress.stop()
         self.progress.pack_forget()
         self.generate_btn.config(state="normal")
-        self.prompt_entry.config(state="normal")
+        self.prompt_text.config(state="normal")
         self.root.title('Генератор изображений')
         self.status_var.set("Генерация завершена")
 
@@ -146,11 +156,11 @@ class ImageGeneratorApp:
         except requests.exceptions.Timeout:
             messagebox.showerror("Ошибка", "Таймаут при загрузке изображения")
             self.status_var.set("Ошибка: таймаут")
-            self.prompt_entry.config(state="normal")
+            self.prompt_text.config(state="normal")
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось загрузить изображение:\n{str(e)}")
             self.status_var.set("Ошибка загрузки")
-            self.prompt_entry.config(state="normal")
+            self.prompt_text.config(state="normal")
 
     def show_image_window(self, pil_image, image_url, prompt):
         # Создаем новое окно
@@ -235,12 +245,13 @@ URL изображения: {image_url}
     def new_generation(self, image_window):
         """Закрывает окно изображения и разрешает новую генерацию"""
         image_window.destroy()
-        self.prompt_entry.focus()
-        self.prompt_entry.select_range(0, tk.END)
+        self.prompt_text.focus()
+        self.prompt_text.tag_add(tk.SEL, "1.0", tk.END)
+        self.prompt_text.mark_set(tk.INSERT, "1.0")
 
     def save_image(self,pil_image):
         # Генерируем предлагаемое имя файла на основе промпта
-        prompt_text = self.prompt_entry.get().strip()[:50]
+        prompt_text = self.prompt_text.get('1.0', tk.END).strip()[:50]
         safe_name = "".join(c if c.isalnum() else "_" for c in prompt_text)
         default_name = f"generated_{safe_name}.jpg" if safe_name else "generated_image.jpg"
 
@@ -274,7 +285,7 @@ URL изображения: {image_url}
         self.progress.stop()
         self.progress.pack_forget()
         self.generate_btn.config(state="normal")
-        self.prompt_entry.config(state="normal")
+        self.prompt_text.config(state="normal")
         self.root.title('Генератор изображений')
         self.status_var.set("Ошибка генерации")
 
