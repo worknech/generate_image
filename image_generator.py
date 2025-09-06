@@ -15,8 +15,8 @@ class ImageGeneratorApp:
     def __init__(self, root):
         self.root = root
         self.root.title('Генератор изображений')
-        self.root.geometry('700x450')
-        self.root.minsize(600, 350)  # Минимальный размер окна
+        self.root.geometry('700x500')
+        self.root.minsize(600, 400)  # Минимальный размер окна
         self.tooltip = None
 
         # Центрирование окна
@@ -31,8 +31,20 @@ class ImageGeneratorApp:
             'playground_v2.5'
         ]
 
+        # Доступные соотношения сторон
+        self.aspect_ratios = {
+            '1:1': '1024x1024',
+            '3:4': '768x1024',
+            '9:16': '576x1024'
+        }
+
+        # Модели, которые поддерживают изменение размера
+        self.models_supporting_size = ['flux', 'stable_diffusion_3', 'sdxl_lightning', 'playground_v2.5']
+
         # Текущая выбранная модель
         self.selected_model = tk.StringVar(value=self.available_models[0])
+        # Текущее выбранное соотношение сторон
+        self.selected_ratio = tk.StringVar(value='1:1')
 
         self.setup_ui()
 
@@ -88,6 +100,23 @@ class ImageGeneratorApp:
         model_combo.bind("<Enter>", show_tooltip)
         model_combo.bind("<Leave>", hide_tooltip)
 
+        # Фрейм для выбора соотношения сторон
+        ratio_frame = ttk.Frame(main_frame)
+        ratio_frame.pack(fill=tk.X, pady=(10, 15))
+
+        ttk.Label(ratio_frame, text="Соотношение сторон:").pack(anchor=tk.W)
+
+        # Radiobuttons для выбора соотношения сторон
+        ratio_container = ttk.Frame(ratio_frame)
+        ratio_container.pack(fill=tk.X, pady=(5, 0))
+
+        ttk.Radiobutton(ratio_container, text="1:1 (Квадрат)", variable=self.selected_ratio, value='1:1').pack(
+            side=tk.LEFT, padx=(0, 10))
+        ttk.Radiobutton(ratio_container, text="3:4 (Портрет)", variable=self.selected_ratio, value='3:4').pack(
+            side=tk.LEFT, padx=(0, 10))
+        ttk.Radiobutton(ratio_container, text="9:16 (Вертикальное)", variable=self.selected_ratio, value='9:16').pack(
+            side=tk.LEFT)
+
         #  Фрейм для промпта
         prompt_frame = ttk.Frame(main_frame)
         prompt_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
@@ -132,21 +161,32 @@ class ImageGeneratorApp:
     def get_model_description(self, model):
         """Возвращает описание модели для подсказки"""
         descriptions = {
-            'flux': 'FLUX - современная модель с открытым исходным кодом, хорошее качество изображений',
-            'stable_diffusion_3': 'Stable Diffusion 3 - продвинутая модель от Stability AI, поддерживает текст в изображениях',
-            'sdxl_lightning': 'SDXL Lightning - очень быстрая версия SDXL, генерирует изображения за несколько секунд',
-            'dall-e': 'DALL-E - модель от OpenAI, высокое качество но может требовать ключ API',
-            'playground_v2.5': 'Playground v2.5 - стилизованная модель в духе Midjourney'
+            'flux': 'FLUX - поддерживает разные размеры, хорошее качество',
+            'stable_diffusion_3': 'Stable Diffusion 3 - поддерживает разные размеры, текст в изображениях',
+            'sdxl_lightning': 'SDXL Lightning - быстрая генерация, поддерживает размеры',
+            'dall-e': 'DALL-E - может не поддерживать все размеры, требует ключ API',
+            'playground_v2.5': 'Playground v2.5 - поддерживает размеры, стилизованные изображения'
         }
         return descriptions.get(model, 'Описание модели недоступно')
 
     def start_generation(self):
         prompt = self.prompt_text.get('1.0', tk.END).strip()
         model = self.selected_model.get()
+        ratio = self.selected_ratio.get()
 
         if not prompt:
             messagebox.showwarning("Внимание", "Введите промпт для генерации")
             return
+
+        # Проверяем, поддерживает ли модель изменение размера
+        if model not in self.models_supporting_size and ratio != '1:1':
+            result = messagebox.askyesno(
+                "Предупреждение",
+                f"Модель {model} может не поддерживать соотношение {ratio}. "
+                f"Может быть сгенерировано квадратное изображение. Продолжить?"
+            )
+            if not result:
+                return
 
         # Блокируем кнопку и показываем прогресс
         self.generate_btn.config(state="disabled")
@@ -154,27 +194,27 @@ class ImageGeneratorApp:
         self.progress.pack(pady=10)
         self.progress.start()
         self.root.title(f'Генератор изображений - {model} - идёт генерация...')
-        self.status_var.set(f"Генерация изображения с помощью {model}...")
+        self.status_var.set(f"Генерация изображения с помощью {model} ({ratio})...")
 
         # Запускаем асинхронную задачу в отдельном потоке
-        thread = Thread(target=self.run_async_task, args=(prompt, model))
+        thread = Thread(target=self.run_async_task, args=(prompt, model, ratio))
         thread.daemon = True
         thread.start()
 
-    def run_async_task(self, prompt, model):
+    def run_async_task(self, prompt, model, ratio):
         # Создаем новый event loop для потока
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
         try:
-            result = loop.run_until_complete(self.generate_image(prompt, model))
-            self.root.after(0, self.on_generation_success, result, prompt, model)
+            result = loop.run_until_complete(self.generate_image(prompt, model, ratio))
+            self.root.after(0, self.on_generation_success, result, prompt, model, ratio)
         except Exception as e:
-            self.root.after(0, self.on_generation_error, str(e), model)
+            self.root.after(0, self.on_generation_error, str(e), model, ratio)
         finally:
             loop.close()
 
-    async def generate_image(self, prompt, model):
+    async def generate_image(self, prompt, model, ratio):
         client = AsyncClient()
 
         # Базовые параметры для всех моделей
@@ -184,29 +224,44 @@ class ImageGeneratorApp:
             'response_format': 'url'
         }
 
-        # Добавляем специфические параметры для разных моделей
-        if model in ['flux', 'stable_diffusion_3', 'sdxl_lightning']:
-            params['size'] = '1024x1024'
+        # Добавляем размер только для моделей, которые его поддерживают
+        if model in self.models_supporting_size:
+            params['size'] = self.aspect_ratios[ratio]
+
+        # Специфические параметры для разных моделей
         if model == 'flux':
             params['style'] = 'photorealistic'
+        elif model == 'dall-e':
+            # Для DALL-E пробуем указать размер, но он может игнорироваться
+            if ratio != '1:1':
+                params['size'] = self.aspect_ratios[ratio]
 
-        response = await client.images.generate(**params)
-        image_url = response.data[0].url
-        return image_url
+        try:
+            response = await client.images.generate(**params)
+            image_url = response.data[0].url
+            return image_url
+        except Exception as e:
+            # Если произошла ошибка, пробуем сгенерировать с размером по умолчанию
+            if 'size' in params and model != 'dall-e':
+                del params['size']
+                response = await client.images.generate(**params)
+                image_url = response.data[0].url
+                return image_url
+            raise e
 
-    def on_generation_success(self, image_url, prompt, model):
+    def on_generation_success(self, image_url, prompt, model, ratio):
         # Останавливаем прогресс и обновляем UI
         self.progress.stop()
         self.progress.pack_forget()
         self.generate_btn.config(state="normal")
         self.prompt_text.config(state="normal")
         self.root.title('Генератор изображений')
-        self.status_var.set(f"Генерация завершена ({model})")
+        self.status_var.set(f"Генерация завершена ({model}, {ratio})")
 
         # Загружаем и отображаем изображение
-        self.download_and_show_image(image_url, prompt, model)
+        self.download_and_show_image(image_url, prompt, model, ratio)
 
-    def download_and_show_image(self, image_url, prompt, model):
+    def download_and_show_image(self, image_url, prompt, model, ratio):
         try:
             self.status_var.set("Загрузка изображения...")
 
@@ -218,8 +273,15 @@ class ImageGeneratorApp:
             image_data =  BytesIO(response.content)
             pil_image = Image.open(image_data)
 
+            # Проверяем фактическое соотношение сторон
+            actual_ratio = f"{pil_image.size[0]}:{pil_image.size[1]}"
+            expected_ratio = self.aspect_ratios[ratio]
+
+            if ratio != '1:1' and actual_ratio != expected_ratio:
+                self.status_var.set(f"Внимание: получено {actual_ratio} вместо {ratio}")
+
             # Создаем новое окно для отображения изображения
-            self.show_image_window(pil_image, image_url, prompt, model)
+            self.show_image_window(pil_image, image_url, prompt, model, ratio, actual_ratio)
 
             self.status_var.set("Изображение загружено")
 
@@ -232,10 +294,13 @@ class ImageGeneratorApp:
             self.status_var.set("Ошибка загрузки")
             self.prompt_text.config(state="normal")
 
-    def show_image_window(self, pil_image, image_url, prompt, model):
+    def show_image_window(self, pil_image, image_url, prompt, model, ratio, actual_ratio=None):
         # Создаем новое окно
         image_window = tk.Toplevel(self.root)
-        image_window.title(f"Сгенерированное изображение - {model}")
+        title = f"Сгенерированное изображение - {model} ({ratio})"
+        if actual_ratio and actual_ratio != self.aspect_ratios[ratio]:
+            title += f" (фактически: {actual_ratio})"
+        image_window.title(title)
         image_window.geometry('800x700')
         image_window.minsize(700, 600)
 
@@ -290,6 +355,8 @@ class ImageGeneratorApp:
         notebook.add(info_frame, text="Информация")
 
         info_text = f"""Модель: {model}
+Запрошенное соотношение: {ratio}
+Фактическое соотношение: {actual_ratio if actual_ratio else 'неизвестно'}
 Промпт: {prompt}
 
 Размер оригинала: {pil_image.size[0]}x{pil_image.size[1]}px
@@ -324,8 +391,9 @@ URL изображения: {image_url}
         # Генерируем предлагаемое имя файла на основе промпта
         prompt_text = self.prompt_text.get('1.0', tk.END).strip()[:50]
         model = self.selected_model.get()
+        ratio = self.selected_ratio.get()
         safe_name = "".join(c if c.isalnum() else "_" for c in prompt_text)
-        default_name = f"generated_{safe_name}_{model}.jpg"
+        default_name = f"generated_{safe_name}_{model}_{ratio.replace(':', 'x')}.jpg"
 
         file_path = filedialog.asksaveasfilename(
             initialfile=default_name,
@@ -352,17 +420,18 @@ URL изображения: {image_url}
                 messagebox.showerror("Ошибка", f"Не удалось сохранить изображение:\n{str(e)}")
                 self.status_var.set("Ошибка сохранения")
 
-    def on_generation_error(self, error_message, model):
+    def on_generation_error(self, error_message, model, ratio):
         # Останавливаем прогресс и обновляем UI
         self.progress.stop()
         self.progress.pack_forget()
         self.generate_btn.config(state="normal")
         self.prompt_text.config(state="normal")
         self.root.title('Генератор изображений')
-        self.status_var.set(f"Ошибка генерации ({model})")
+        self.status_var.set(f"Ошибка генерации ({model}, {ratio}))")
 
         # Показываем ошибку
-        messagebox.showerror("Ошибка", f"Произошла ошибка при генерации с помощью {model}:\n{error_message}")
+        messagebox.showerror("Ошибка", f"Произошла ошибка при генерации с помощью {model} ({ratio})"
+                                       f":\n{error_message}")
 
 
 def main():

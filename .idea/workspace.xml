@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3df24176-ef5b-45d6-ac35-d25d26ec9f54" name="Changes" comment="Доработан вывод изображений, центрирование окна. Добавлены полосы прокрутки">
+    <list default="true" id="3df24176-ef5b-45d6-ac35-d25d26ec9f54" name="Changes" comment="Добавлена возможность выбора моделей генерации изображений">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/image_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/image_generator.py" afterDir="false" />
     </list>
@@ -70,7 +70,7 @@
       <workItem from="1756663537721" duration="6284000" />
       <workItem from="1756716425563" duration="4569000" />
       <workItem from="1756729215475" duration="149000" />
-      <workItem from="1757060818454" duration="2952000" />
+      <workItem from="1757060818454" duration="12820000" />
     </task>
     <task id="LOCAL-00001" summary="feat: add .gitignore for Python project">
       <option name="closed" value="true" />
@@ -120,7 +120,23 @@
       <option name="project" value="LOCAL" />
       <updated>1756720586936</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Изменено поле для ввода промпта.">
+      <option name="closed" value="true" />
+      <created>1757064504875</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1757064504875</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Добавлена возможность выбора моделей генерации изображений">
+      <option name="closed" value="true" />
+      <created>1757075141039</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1757075141039</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -144,9 +160,11 @@
     <MESSAGE value="ДОбавлено окно вывода изображения и кнопки закрытия окна м сохранения изображения" />
     <MESSAGE value="Добавлено окно вывода изображения и кнопки закрытия окна м сохранения изображения" />
     <MESSAGE value="Доработан вывод изображений, центрирование окна. Добавлены полосы прокрутки" />
-    <option name="LAST_COMMIT_MESSAGE" value="Доработан вывод изображений, центрирование окна. Добавлены полосы прокрутки" />
+    <MESSAGE value="Изменено поле для ввода промпта." />
+    <MESSAGE value="Добавлена возможность выбора моделей генерации изображений" />
+    <option name="LAST_COMMIT_MESSAGE" value="Добавлена возможность выбора моделей генерации изображений" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/GI_light$image_generator.coverage" NAME="image_generator Coverage Results" MODIFIED="1757062328913" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/GI_light$image_generator.coverage" NAME="image_generator Coverage Results" MODIFIED="1757080439035" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
