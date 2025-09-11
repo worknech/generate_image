@@ -114,6 +114,10 @@ class ImageGeneratorApp:
         # Бинд Ctrl+Enter для быстрой генерации (ДОБАВЬТЕ ЭТУ СТРОЧКУ)
         self.prompt_text.bind('<Control-Return>', lambda e: self.start_generation())
 
+        # Бинд Ctrl+V для вставки из буфера обмена
+        self.prompt_text.bind('<Control-v>', self.paste_from_clipboard)
+        self.prompt_text.bind('<Control-V>', self.paste_from_clipboard)  # Для Caps Lock
+
         # Кнопка генерации
         self.generate_btn = ttk.Button(main_frame, text="Сгенерировать изображение",
                                        command=self.start_generation,
@@ -128,6 +132,22 @@ class ImageGeneratorApp:
         self.status_var.set("Готов к генерации")
         status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def paste_from_clipboard(self, event):
+        """Вставка текста из буфера обмена"""
+        try:
+            # Получаем текст из буфера обмена
+            clipboard_text = self.root.clipboard_get()
+
+            # Вставляем текст в текущую позицию курсора
+            self.prompt_text.insert(tk.INSERT, clipboard_text)
+
+            # Возвращаем 'break' чтобы предотвратить стандартное поведение
+            return 'break'
+
+        except tk.TclError:
+            # Если в буфере обмена нет текста
+            return None
 
     def get_model_description(self, model):
         """Возвращает описание модели для подсказки"""
